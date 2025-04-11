@@ -265,9 +265,43 @@ export const GitLabApprovalSchema = z.object({
   approved_by: z.array(z.object({ user: GitLabUserSchema })),
 });
 
+export const GitLabMergeRequestDiffsSchema = z.array(
+  z.object({
+    old_path: z.string().describe("Old path of the file."),
+    new_path: z.string().describe("New path of the file."),
+    a_mode: z.string().describe("Old file mode of the file."),
+    b_mode: z.string().describe("New file mode of the file."),
+    diff: z
+      .string()
+      .describe("Diff representation of the changes made to the file."),
+    new_file: z
+      .boolean()
+      .describe("Indicates if the file has just been added."),
+    renamed_file: z
+      .boolean()
+      .describe("Indicates if the file has been renamed."),
+    deleted_file: z
+      .boolean()
+      .describe("Indicates if the file has been removed."),
+    generated_file: z
+      .boolean()
+      .describe("Indicates if the file is marked as generated."),
+  })
+);
+
+export const GitLabMergeRequestRawDiffsSchema = z
+  .string()
+  .describe("Raw diff response to use programmatically");
+
 // API Operation Parameter Schemas
 const ProjectParamsSchema = z.object({
   project_id: z.string().describe("Project ID or URL-encoded path"), // Changed from owner/repo to match GitLab API
+});
+
+const MergeRequestParamsSchema = ProjectParamsSchema.extend({
+  merge_request_iid: z
+    .string()
+    .describe("The internal ID of the merge request."),
 });
 
 export const CreateOrUpdateFileSchema = ProjectParamsSchema.extend({
@@ -356,68 +390,32 @@ export const CreateBranchSchema = ProjectParamsSchema.extend({
   ref: z.string().optional().describe("Source branch/commit for new branch"),
 });
 
-export const CommentMergeRequestSchema = ProjectParamsSchema.extend({
-  merge_request_id: z.string().describe("Merge Request ID"),
+export const CommentMergeRequestSchema = MergeRequestParamsSchema.extend({
   body: z.string().describe("Comment content"),
 });
 
-export const GetMergeRequestChangesSchema = z.object({
-  project_id: z
-    .string()
-    .describe("Project ID or URL-encoded path of the repository"),
-  merge_request_id: z
-    .string()
-    .describe("The internal ID of the merge request (not the !number)"),
-  access_raw_diffs: z
+export const GetMergeRequestDiffsSchema = MergeRequestParamsSchema.extend({
+  page: z
+    .number()
+    .optional()
+    .describe("The page of results to return. Defaults to 1"),
+  per_page: z
+    .number()
+    .optional()
+    .describe("The number of results per page. Defaults to 20."),
+  unidiff: z
     .boolean()
     .optional()
-    .describe("If true, response includes the raw diffs (may be large)"),
-  with_stats: z
-    .boolean()
-    .optional()
-    .describe("If true, includes line count statistics for each file"),
+    .describe(
+      "If true, present diffs in the unified diff format. Default is false."
+    ),
 });
 
-// Add GitLab schema for the response
-export const GitLabMergeRequestChangesSchema = z.object({
-  changes: z.array(
-    z.object({
-      old_path: z.string().describe("Path to the file in base branch"),
-      new_path: z.string().describe("Path to the file in target branch"),
-      a_mode: z.string().optional().describe("File mode in base branch"),
-      b_mode: z.string().optional().describe("File mode in target branch"),
-      diff: z.string().describe("The diff content"),
-      new_file: z.boolean().describe("True if file was newly added"),
-      renamed_file: z.boolean().describe("True if file was renamed"),
-      deleted_file: z.boolean().describe("True if file was deleted"),
-      content_sha256: z.string().optional(),
-      content: z.string().optional().describe("Content of the file"),
-    })
-  ),
-  commits: z
-    .array(
-      z.object({
-        id: z.string(),
-        short_id: z.string(),
-        title: z.string(),
-        author_name: z.string(),
-        author_email: z.string(),
-        created_at: z.string(),
-        message: z.string(),
-      })
-    )
-    .optional(),
-  work_in_progress: z.boolean().optional(),
-  base_commit_sha: z.string().optional(),
-});
+export const GetMergeRequestRawDiffsSchema = MergeRequestParamsSchema;
 
-export const ApproveMergeRequestSchema = ProjectParamsSchema.extend({
-  merge_request_id: z.string().describe("Merge Request ID"),
-});
+export const ApproveMergeRequestSchema = MergeRequestParamsSchema;
 
-export const UnapproveMergeRequestSchema = ProjectParamsSchema.extend({
-  merge_request_id: z.string().describe("Merge Request ID"),
-});
+export const UnapproveMergeRequestSchema = MergeRequestParamsSchema;
 
 // Export types
 export type GitLabAuthor = z.infer<typeof GitLabAuthorSchema>;
@@ -448,6 +446,9 @@ export type GitLabCreateUpdateFileResponse = z.infer<
   typeof GitLabCreateUpdateFileResponseSchema
 >;
 export type GitLabSearchResponse = z.infer<typeof GitLabSearchResponseSchema>;
-export type GitLabMergeRequestChange = z.infer<
-  typeof GitLabMergeRequestChangesSchema
+export type GitLabMergeRequestDiffs = z.infer<
+  typeof GitLabMergeRequestDiffsSchema
+>;
+export type GitLabMergeRequestRawDiffs = z.infer<
+  typeof GitLabMergeRequestRawDiffsSchema
 >;

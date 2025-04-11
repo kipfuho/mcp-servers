@@ -47,13 +47,16 @@ import {
   CommentMergeRequestSchema,
   GitLabComment,
   GitLabCommentSchema,
-  GitLabMergeRequestChangesSchema,
-  GetMergeRequestChangesSchema,
-  GitLabMergeRequestChange,
   GitLabApproval,
   GitLabApprovalSchema,
   ApproveMergeRequestSchema,
   UnapproveMergeRequestSchema,
+  GitLabMergeRequestDiffsSchema,
+  GitLabMergeRequestDiffs,
+  GetMergeRequestDiffsSchema,
+  GetMergeRequestRawDiffsSchema,
+  GitLabMergeRequestRawDiffs,
+  GitLabMergeRequestRawDiffsSchema,
 } from "./schemas.js";
 
 const server = new Server(
@@ -97,7 +100,8 @@ async function forkProject(
   });
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   return GitLabForkSchema.parse(await response.json());
@@ -125,7 +129,8 @@ async function createBranch(
   );
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   return GitLabReferenceSchema.parse(await response.json());
@@ -142,7 +147,8 @@ async function getDefaultBranchRef(projectId: string): Promise<string> {
   );
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   const project = GitLabRepositorySchema.parse(await response.json());
@@ -166,7 +172,8 @@ async function getFileContents(
   });
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   const data = GitLabContentSchema.parse(await response.json());
@@ -201,7 +208,8 @@ async function createIssue(
   );
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   return GitLabIssueSchema.parse(await response.json());
@@ -233,7 +241,8 @@ async function createMergeRequest(
   );
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   return GitLabMergeRequestSchema.parse(await response.json());
@@ -278,7 +287,8 @@ async function createOrUpdateFile(
   });
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   return GitLabCreateUpdateFileResponseSchema.parse(await response.json());
@@ -310,7 +320,8 @@ async function createTree(
   );
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   return GitLabTreeSchema.parse(await response.json());
@@ -345,7 +356,8 @@ async function createCommit(
   );
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   return GitLabCommitSchema.parse(await response.json());
@@ -368,7 +380,8 @@ async function searchProjects(
   });
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   const projects = await response.json();
@@ -396,7 +409,8 @@ async function createRepository(
   });
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   return GitLabRepositorySchema.parse(await response.json());
@@ -424,70 +438,42 @@ async function commentMergeRequest(
   );
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   return GitLabCommentSchema.parse(await response.json());
 }
 
 /**
- * Helper function to summarize merge request changes into a more readable format
- * @param {object} changes - The raw changes object from GitLab API
- * @returns {object} A summarized version of the changes
- */
-function summarizeMergeRequestChanges(changes: GitLabMergeRequestChange) {
-  return {
-    summary: {
-      total_files_changed: changes.changes.length,
-      files_added: changes.changes.filter((f) => f.new_file).length,
-      files_deleted: changes.changes.filter((f) => f.deleted_file).length,
-      files_renamed: changes.changes.filter((f) => f.renamed_file).length,
-      files_modified: changes.changes.filter(
-        (f) => !f.new_file && !f.deleted_file && !f.renamed_file
-      ).length,
-    },
-    file_changes: changes.changes.map((file) => ({
-      old_path: file.old_path,
-      new_path: file.new_path,
-      change_type: file.new_file
-        ? "added"
-        : file.deleted_file
-        ? "deleted"
-        : file.renamed_file
-        ? "renamed"
-        : "modified",
-      diff_preview:
-        file.diff.split("\n").slice(0, 3).join("\n") +
-        (file.diff.split("\n").length > 3 ? "\n..." : ""),
-    })),
-    commits: changes.commits || [],
-  };
-}
-
-/**
- * Get changes (diff) for a specific merge request in a GitLab project
+ * Get diff for a specific merge request in a GitLab project
  * @param {string} projectId - The ID or URL-encoded path of the project
  * @param {string} mergeRequestId - The IID of the merge request
- * @returns {Promise<object>} The merge request changes including diffs
+ * @returns {Promise<object>} The merge request diffs
  */
-async function getMergeRequestChanges(
+async function getMergeRequestDiffs(
   projectId: string,
   mergeRequestId: string,
-  accessRawDiffs: boolean | undefined,
-  withStats: boolean | undefined
-) {
+  page: number | undefined,
+  perPage: number | undefined,
+  unidiff: boolean | undefined
+): Promise<GitLabMergeRequestDiffs> {
   try {
     let url = `${GITLAB_API_URL}/projects/${encodeURIComponent(
       projectId
-    )}/merge_requests/${mergeRequestId}/changes`;
+    )}/merge_requests/${mergeRequestId}/diffs`;
     const queryParams = new URLSearchParams();
 
-    if (accessRawDiffs) {
-      queryParams.append("access_raw_diffs", "true");
+    if (page) {
+      queryParams.append("page", `${page}`);
     }
 
-    if (withStats) {
-      queryParams.append("with_stats", "true");
+    if (perPage) {
+      queryParams.append("per_page", `${perPage}`);
+    }
+
+    if (unidiff) {
+      queryParams.append("unidiff", "true");
     }
 
     const queryString = queryParams.toString();
@@ -510,7 +496,50 @@ async function getMergeRequestChanges(
     }
 
     const data = await response.json();
-    return GitLabMergeRequestChangesSchema.parse(data);
+    return GitLabMergeRequestDiffsSchema.parse(data);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new Error(
+        `Invalid response format: ${error.errors
+          .map((e) => `${e.path.join(".")}: ${e.message}`)
+          .join(", ")}`
+      );
+    }
+    throw error;
+  }
+}
+
+/**
+ * Get raw diffs for a specific merge request in a GitLab project
+ * @param {string} projectId - The ID or URL-encoded path of the project
+ * @param {string} mergeRequestId - The IID of the merge request
+ * @returns {string} The merge request raw diffs
+ */
+async function getMergeRequestRawDiffs(
+  projectId: string,
+  mergeRequestId: string
+): Promise<GitLabMergeRequestRawDiffs> {
+  try {
+    const url = `${GITLAB_API_URL}/projects/${encodeURIComponent(
+      projectId
+    )}/merge_requests/${mergeRequestId}/raw_diffs`;
+
+    // Make the API request with the constructed URL
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(
+        `GitLab API error: ${response.statusText} - ${errorBody}`
+      );
+    }
+
+    const data = await response.text();
+    return GitLabMergeRequestRawDiffsSchema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new Error(
@@ -541,7 +570,8 @@ async function approveMergeRequest(
   );
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   return GitLabApprovalSchema.parse(await response.json());
@@ -565,7 +595,8 @@ async function unapproveMergeRequest(
   );
 
   if (!response.ok) {
-    throw new Error(`GitLab API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
   return GitLabApprovalSchema.parse(await response.json());
@@ -628,10 +659,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: zodToJsonSchema(CommentMergeRequestSchema),
       },
       {
-        name: "get_merge_request_changes",
-        description:
-          "Get the changes (diff) from a merge request in a GitLab project. Returns file changes with diffs, commit info, and optionally statistics.",
-        inputSchema: zodToJsonSchema(GetMergeRequestChangesSchema),
+        name: "get_merge_request_diffs",
+        description: "Get list diffs and raw diffs in a merge request.",
+        inputSchema: zodToJsonSchema(GetMergeRequestDiffsSchema),
       },
       {
         name: "approve_merge_request",
@@ -763,10 +793,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "comment_merge_request": {
         const args = CommentMergeRequestSchema.parse(request.params.arguments);
-        const { project_id, merge_request_id, body } = args;
+        const { project_id, merge_request_iid, body } = args;
         const comment = await commentMergeRequest(
           project_id,
-          merge_request_id,
+          merge_request_iid,
           body
         );
         return {
@@ -776,17 +806,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // Then update the handler case:
       case "get_merge_request_changes": {
-        const args = GetMergeRequestChangesSchema.parse(
-          request.params.arguments
-        );
-        const { project_id, merge_request_id, access_raw_diffs, with_stats } =
-          args;
+        const args = GetMergeRequestDiffsSchema.parse(request.params.arguments);
+        const { project_id, merge_request_iid, page, per_page, unidiff } = args;
 
-        const changes = await getMergeRequestChanges(
+        const diffs = await getMergeRequestDiffs(
           project_id,
-          merge_request_id,
-          access_raw_diffs,
-          with_stats
+          merge_request_iid,
+          page,
+          per_page,
+          unidiff
+        );
+
+        const raw_diffs = await getMergeRequestRawDiffs(
+          project_id,
+          merge_request_iid
         );
 
         return {
@@ -795,8 +828,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               type: "text",
               text: JSON.stringify(
                 {
-                  raw_changes: changes,
-                  summary: summarizeMergeRequestChanges(changes),
+                  diffs,
+                  raw_diffs,
                 },
                 null,
                 2
@@ -808,10 +841,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "approve_merge_request": {
         const args = ApproveMergeRequestSchema.parse(request.params.arguments);
-        const { project_id, merge_request_id } = args;
+        const { project_id, merge_request_iid } = args;
         const approval = await approveMergeRequest(
           project_id,
-          merge_request_id
+          merge_request_iid
         );
         return {
           content: [{ type: "text", text: JSON.stringify(approval, null, 2) }],
@@ -822,10 +855,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const args = UnapproveMergeRequestSchema.parse(
           request.params.arguments
         );
-        const { project_id, merge_request_id } = args;
+        const { project_id, merge_request_iid } = args;
         const approval = await unapproveMergeRequest(
           project_id,
-          merge_request_id
+          merge_request_iid
         );
         return {
           content: [{ type: "text", text: JSON.stringify(approval, null, 2) }],
