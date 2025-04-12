@@ -45,8 +45,8 @@ import {
   type GitLabCommit,
   type FileOperation,
   CommentMergeRequestSchema,
-  GitLabComment,
-  GitLabCommentSchema,
+  GitLabNote,
+  GitLabNoteSchema,
   GitLabApproval,
   GitLabApprovalSchema,
   ApproveMergeRequestSchema,
@@ -57,6 +57,10 @@ import {
   GetMergeRequestRawDiffsSchema,
   GitLabMergeRequestRawDiffs,
   GitLabMergeRequestRawDiffsSchema,
+  GitLabThread,
+  GitLabThreadPosition,
+  GitLabThreadSchema,
+  CreateMergeRequestThreadSchema,
 } from "./schemas.js";
 
 const server = new Server(
@@ -420,7 +424,7 @@ async function commentMergeRequest(
   projectId: string,
   mergeRequestId: string,
   body: string
-): Promise<GitLabComment> {
+): Promise<GitLabNote> {
   const response = await fetch(
     `${GITLAB_API_URL}/projects/${encodeURIComponent(
       projectId
@@ -442,7 +446,7 @@ async function commentMergeRequest(
     throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
   }
 
-  return GitLabCommentSchema.parse(await response.json());
+  return GitLabNoteSchema.parse(await response.json());
 }
 
 /**
@@ -602,6 +606,41 @@ async function unapproveMergeRequest(
   return GitLabApprovalSchema.parse(await response.json());
 }
 
+async function createNewThreadMergeRequest(
+  projectId: string,
+  mergeRequestId: string,
+  body: string,
+  commit_id?: string,
+  created_at?: string,
+  position?: GitLabThreadPosition
+): Promise<GitLabThread> {
+  const response = await fetch(
+    `${GITLAB_API_URL}/projects/${encodeURIComponent(
+      projectId
+    )}/merge_requests/${mergeRequestId}/discussions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        body,
+        commit_id,
+        created_at,
+        position,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
+  }
+
+  return GitLabThreadSchema.parse(await response.json());
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
@@ -655,7 +694,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "comment_merge_request",
-        description: "Comment a merge request in a GitLab project",
+        description:
+          "Creates a new note for a single merge request. Notes are not attached to specific lines in a merge request.",
         inputSchema: zodToJsonSchema(CommentMergeRequestSchema),
       },
       {
@@ -672,6 +712,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         name: "unapprove_merge_request",
         description: "Unapprove a merge request",
         inputSchema: zodToJsonSchema(UnapproveMergeRequestSchema),
+      },
+      {
+        name: "create_merge_request_thread",
+        description:
+          "Creates a new thread to a single project merge request. Similar to creating a note but other comments (replies) can be added to it later.",
+        inputSchema: zodToJsonSchema(CreateMergeRequestThreadSchema),
       },
     ],
   };
@@ -804,8 +850,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      // Then update the handler case:
-      case "get_merge_request_changes": {
+      case "get_merge_request_diffs": {
         const args = GetMergeRequestDiffsSchema.parse(request.params.arguments);
         const { project_id, merge_request_iid, page, per_page, unidiff } = args;
 
@@ -862,6 +907,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         );
         return {
           content: [{ type: "text", text: JSON.stringify(approval, null, 2) }],
+        };
+      }
+
+      case "create_merge_request_thread": {
+        const args = CreateMergeRequestThreadSchema.parse(
+          request.params.arguments
+        );
+        const {
+          project_id,
+          merge_request_iid,
+          body,
+          commit_id,
+          created_at,
+          position,
+        } = args;
+        const thread = await createNewThreadMergeRequest(
+          project_id,
+          merge_request_iid,
+          body,
+          commit_id,
+          created_at,
+          position
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify(thread, null, 2) }],
         };
       }
 

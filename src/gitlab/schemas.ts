@@ -234,20 +234,27 @@ export const GitLabMergeRequestSchema = z.object({
   merge_commit_sha: z.string().nullable(),
 });
 
-export const GitLabCommentSchema = z.object({
-  id: z.number(),
-  body: z.string(),
+export const GitLabNoteSchema = z.object({
+  id: z.number().describe("Unique ID of the note"),
+  body: z.string().describe("Content of the note"),
   author: GitLabUserSchema,
-  created_at: z.string(),
-  updated_at: z.string(),
-  system: z.boolean(),
-  noteable_id: z.number(),
-  noteable_type: z.enum(["Issue", "MergeRequest", "Epic"]),
-  project_id: z.number(),
-  noteable_iid: z.number(),
-  resolvable: z.boolean(),
-  confidential: z.boolean(),
-  internal: z.boolean(),
+  created_at: z.string().describe("Timestamp when the note was created"),
+  updated_at: z.string().describe("Timestamp when the note was last updated"),
+  system: z.boolean().describe("True if it's a system-generated note"),
+  noteable_id: z.number().describe("ID of the item the note is attached to"),
+  noteable_type: z
+    .enum(["Issue", "MergeRequest", "Epic"])
+    .describe("Type of item the note is related to, e.g., 'MergeRequest'"),
+  project_id: z.number().describe("ID of the associated project"),
+  noteable_iid: z
+    .number()
+    .nullable()
+    .describe("Internal ID of the noteable item (nullable)"),
+  resolvable: z.boolean().describe("True if the note is resolvable"),
+  confidential: z.boolean().describe("The confidential flag of a note."),
+  internal: z
+    .boolean()
+    .describe("The internal flag of a note. Same as 'confidential'"),
 });
 
 export const GitLabApprovalSchema = z.object({
@@ -292,6 +299,68 @@ export const GitLabMergeRequestDiffsSchema = z.array(
 export const GitLabMergeRequestRawDiffsSchema = z
   .string()
   .describe("Raw diff response to use programmatically");
+
+const GitLabThreadLineSchema = z.object({
+  line_code: z.string().describe("Unique identifier for the line comment"),
+  type: z
+    .string()
+    .describe("Indicates whether it's a comment on an old or new line"),
+  old_line: z
+    .number()
+    .nullable()
+    .describe("Line number in the old version of the file"),
+  new_line: z
+    .number()
+    .nullable()
+    .describe("Line number in the new version of the file"),
+});
+
+const GitLabThreadLineRangeSchema = z
+  .object({
+    start: GitLabThreadLineSchema.describe("Start of the line range"),
+    end: GitLabThreadLineSchema.describe("End of the line range"),
+  })
+  .describe("Represents a range of lines being commented on");
+
+const GitLabThreadPositionSchema = z
+  .object({
+    base_sha: z.string().describe("SHA of the base commit of the diff"),
+    start_sha: z
+      .string()
+      .describe("SHA of the starting commit in the diff comparison"),
+    head_sha: z.string().describe("SHA of the head commit in the diff"),
+    old_path: z.string().describe("Path to the file in the old version"),
+    new_path: z.string().describe("Path to the file in the new version"),
+    position_type: z.string().describe("Type of position, usually 'text'"),
+    old_line: z.number().describe("Line number in the old file"),
+    new_line: z.number().describe("Line number in the new file"),
+    line_range: GitLabThreadLineRangeSchema,
+    width: z.number().optional().describe("Image width for image diff notes"),
+    height: z.number().optional().describe("Image height for image diff notes"),
+    x: z.number().optional().describe("X coordinate for image diff notes"),
+    y: z.number().optional().describe("Y coordinate for image diff notes"),
+  })
+  .describe("Describes the exact location of the note in the diff");
+
+const GitLabThreadNoteSchema = GitLabNoteSchema.extend({
+  type: z.string().describe("Type of note, e.g., 'DiffNote'"),
+  attachment: z.any().nullable().describe("Any file attachment to the note"),
+  commit_id: z
+    .string()
+    .describe("SHA of the commit this note is associated with"),
+  position: GitLabThreadPositionSchema,
+  resolved: z.boolean().describe("True if the note has been resolved"),
+  resolved_by: z
+    .any()
+    .nullable()
+    .describe("User who resolved the note (nullable)"),
+}).describe("Represents a single comment or note on a diff");
+
+export const GitLabThreadSchema = z.object({
+  id: z.string(),
+  individual_note: z.boolean(),
+  notes: z.array(GitLabThreadNoteSchema),
+});
 
 // API Operation Parameter Schemas
 const ProjectParamsSchema = z.object({
@@ -417,6 +486,21 @@ export const ApproveMergeRequestSchema = MergeRequestParamsSchema;
 
 export const UnapproveMergeRequestSchema = MergeRequestParamsSchema;
 
+export const CreateMergeRequestThreadSchema = MergeRequestParamsSchema.extend({
+  body: z.string().min(1).describe("The content of the thread"),
+  commit_id: z
+    .string()
+    .optional()
+    .describe("SHA referencing commit to start this thread on"),
+  created_at: z
+    .string()
+    .optional()
+    .describe("ISO 8601 date-time string, requires admin/project owner rights"),
+  position: GitLabThreadPositionSchema.optional().describe(
+    "Optional position object for diff/image/file comments"
+  ),
+});
+
 // Export types
 export type GitLabAuthor = z.infer<typeof GitLabAuthorSchema>;
 export type GitLabFork = z.infer<typeof GitLabForkSchema>;
@@ -432,8 +516,10 @@ export type FileOperation = z.infer<typeof FileOperationSchema>;
 export type GitLabTree = z.infer<typeof GitLabTreeSchema>;
 export type GitLabCommit = z.infer<typeof GitLabCommitSchema>;
 export type GitLabReference = z.infer<typeof GitLabReferenceSchema>;
-export type GitLabComment = z.infer<typeof GitLabCommentSchema>;
+export type GitLabNote = z.infer<typeof GitLabNoteSchema>;
 export type GitLabApproval = z.infer<typeof GitLabApprovalSchema>;
+export type GitLabThreadPosition = z.infer<typeof GitLabThreadPositionSchema>;
+export type GitLabThread = z.infer<typeof GitLabThreadSchema>;
 export type CreateRepositoryOptions = z.infer<
   typeof CreateRepositoryOptionsSchema
 >;
