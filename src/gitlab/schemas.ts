@@ -307,11 +307,11 @@ const GitLabThreadLineSchema = z.object({
     .describe("Indicates whether it's a comment on an old or new line"),
   old_line: z
     .number()
-    .nullable()
+    .optional()
     .describe("Line number in the old version of the file"),
   new_line: z
     .number()
-    .nullable()
+    .optional()
     .describe("Line number in the new version of the file"),
 });
 
@@ -324,11 +324,21 @@ const GitLabThreadLineRangeSchema = z
 
 const GitLabThreadPositionSchema = z
   .object({
-    base_sha: z.string().describe("SHA of the base commit of the diff"),
+    base_sha: z
+      .string()
+      .describe(
+        "SHA of the base commit of the diff. Get from merge request version"
+      ),
     start_sha: z
       .string()
-      .describe("SHA of the starting commit in the diff comparison"),
-    head_sha: z.string().describe("SHA of the head commit in the diff"),
+      .describe(
+        "SHA of the starting commit in the diff comparison. Get from merge request version"
+      ),
+    head_sha: z
+      .string()
+      .describe(
+        "SHA of the head commit in the diff. Get from merge request version"
+      ),
     old_path: z.string().describe("Path to the file in the old version"),
     new_path: z.string().describe("Path to the file in the new version"),
     position_type: z
@@ -337,14 +347,12 @@ const GitLabThreadPositionSchema = z
     old_line: z
       .number()
       .optional()
-      .nullable()
-      .describe("Line number in the old file")
+      .describe("Line number in the old file. (Must not be null)")
       .optional(),
     new_line: z
       .number()
       .optional()
-      .nullable()
-      .describe("Line number in the new file")
+      .describe("Line number in the new file. (Must not be null)")
       .optional(),
     line_range: GitLabThreadLineRangeSchema.optional().nullable(),
     // width: z.number().optional().describe("Image width for image diff notes"),
@@ -380,6 +388,20 @@ export const GitLabThreadSchema = z.object({
 });
 
 export const GitLabThreadListSchema = z.array(GitLabThreadSchema);
+
+const GitLabMergeRequestVersionSchema = z.object({
+  id: z.number().describe("Merge request version id"),
+  head_commit_sha: z.string().describe("Head commit SHA"),
+  base_commit_sha: z.string().describe("Base commit SHA"),
+  start_commit_sha: z.string().describe("Start commit SHA"),
+  merge_request_id: z.number().describe("Merge request id"),
+});
+
+export const GitLabMergeRequestVersionListSchema = z
+  .array(GitLabMergeRequestVersionSchema)
+  .describe(
+    "List of merge request version. The newest version is the first element of the list"
+  );
 
 // API Operation Parameter Schemas
 const ProjectParamsSchema = z.object({
@@ -509,6 +531,8 @@ export const ApproveMergeRequestSchema = MergeRequestParamsSchema;
 
 export const UnapproveMergeRequestSchema = MergeRequestParamsSchema;
 
+export const GetMergeRequestVersionSchema = MergeRequestParamsSchema;
+
 export const CreateMergeRequestThreadSchema = MergeRequestParamsSchema.extend({
   body: z.string().min(1).describe("The content of the thread"),
   commit_id: z
@@ -564,6 +588,9 @@ export type GitLabApproval = z.infer<typeof GitLabApprovalSchema>;
 export type GitLabThreadPosition = z.infer<typeof GitLabThreadPositionSchema>;
 export type GitLabThread = z.infer<typeof GitLabThreadSchema>;
 export type GitLabThreadNote = z.infer<typeof GitLabThreadNoteSchema>;
+export type GitLabMergeRequestVersion = z.infer<
+  typeof GitLabMergeRequestVersionSchema
+>;
 export type CreateRepositoryOptions = z.infer<
   typeof CreateRepositoryOptionsSchema
 >;

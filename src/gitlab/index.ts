@@ -67,6 +67,9 @@ import {
   ResolveMergeRequestThreadSchema,
   GitLabThreadListSchema,
   GetThreadListMergeRequestSchema,
+  GitLabMergeRequestVersion,
+  GitLabMergeRequestVersionListSchema,
+  GetMergeRequestVersionSchema,
 } from "./schemas.js";
 
 const server = new Server(
@@ -757,6 +760,31 @@ async function getThreadListMergeRequest(
   return allThreads;
 }
 
+async function getMergeRequestVersions(
+  projectId: string,
+  mergeRequestId: string
+): Promise<GitLabMergeRequestVersion[]> {
+  const response = await fetch(
+    `${GITLAB_API_URL}/projects/${encodeURIComponent(
+      projectId
+    )}/merge_requests/${mergeRequestId}/versions`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
+  }
+
+  return GitLabMergeRequestVersionListSchema.parse(await response.json());
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
@@ -852,6 +880,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         description:
           "Gets a list of all discussion items for a single merge request.",
         inputSchema: zodToJsonSchema(GetThreadListMergeRequestSchema),
+      },
+      {
+        name: "get_merge_request_version",
+        description:
+          "Get current version of a merge request to get head_sha, base_sha and start_commit_sha.",
+        inputSchema: zodToJsonSchema(GetMergeRequestVersionSchema),
       },
     ],
   };
@@ -1107,6 +1141,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         );
         return {
           content: [{ type: "text", text: JSON.stringify(threads, null, 2) }],
+        };
+      }
+
+      case "get_merge_request_version": {
+        const args = GetMergeRequestVersionSchema.parse(
+          request.params.arguments
+        );
+        const { project_id, merge_request_iid } = args;
+        const versions = await getMergeRequestVersions(
+          project_id,
+          merge_request_iid
+        );
+        return {
+          content: [
+            { type: "text", text: JSON.stringify(versions[0], null, 2) },
+          ],
         };
       }
 
