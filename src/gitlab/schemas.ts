@@ -342,18 +342,19 @@ const GitLabThreadPositionSchema = z
   })
   .describe("Describes the exact location of the note in the diff");
 
-const GitLabThreadNoteSchema = GitLabNoteSchema.extend({
-  type: z.string().describe("Type of note, e.g., 'DiffNote'"),
+export const GitLabThreadNoteSchema = GitLabNoteSchema.extend({
+  type: z
+    .enum(["Note", "Discussion", "DiscussionNote"])
+    .describe("Type of note, e.g., 'Discussion'"),
   attachment: z.any().nullable().describe("Any file attachment to the note"),
   commit_id: z
     .string()
     .describe("SHA of the commit this note is associated with"),
   position: GitLabThreadPositionSchema,
   resolved: z.boolean().describe("True if the note has been resolved"),
-  resolved_by: z
-    .any()
-    .nullable()
-    .describe("User who resolved the note (nullable)"),
+  resolved_by: GitLabUserSchema.nullable().describe(
+    "User who resolved the note (nullable)"
+  ),
 }).describe("Represents a single comment or note on a diff");
 
 export const GitLabThreadSchema = z.object({
@@ -371,6 +372,10 @@ const MergeRequestParamsSchema = ProjectParamsSchema.extend({
   merge_request_iid: z
     .string()
     .describe("The internal ID of the merge request."),
+});
+
+const DiscussionParamsSchema = MergeRequestParamsSchema.extend({
+  discussion_id: z.string().describe("The ID of a thread."),
 });
 
 export const CreateOrUpdateFileSchema = ProjectParamsSchema.extend({
@@ -501,6 +506,15 @@ export const CreateMergeRequestThreadSchema = MergeRequestParamsSchema.extend({
   ),
 });
 
+export const ResolveMergeRequestThreadSchema = DiscussionParamsSchema.extend({
+  resolved: z.boolean().describe("Resolve or unresolve the discussion."),
+});
+
+export const AddNoteToMergeRequestThreadSchema = DiscussionParamsSchema.extend({
+  body: z.string().min(1).describe("The content of the thread"),
+  note_id: z.string().optional().describe("The ID of a thread note."),
+});
+
 // Export types
 export type GitLabAuthor = z.infer<typeof GitLabAuthorSchema>;
 export type GitLabFork = z.infer<typeof GitLabForkSchema>;
@@ -520,6 +534,7 @@ export type GitLabNote = z.infer<typeof GitLabNoteSchema>;
 export type GitLabApproval = z.infer<typeof GitLabApprovalSchema>;
 export type GitLabThreadPosition = z.infer<typeof GitLabThreadPositionSchema>;
 export type GitLabThread = z.infer<typeof GitLabThreadSchema>;
+export type GitLabThreadNote = z.infer<typeof GitLabThreadNoteSchema>;
 export type CreateRepositoryOptions = z.infer<
   typeof CreateRepositoryOptionsSchema
 >;

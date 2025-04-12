@@ -61,6 +61,10 @@ import {
   GitLabThreadPosition,
   GitLabThreadSchema,
   CreateMergeRequestThreadSchema,
+  GitLabThreadNote,
+  GitLabThreadNoteSchema,
+  AddNoteToMergeRequestThreadSchema,
+  ResolveMergeRequestThreadSchema,
 } from "./schemas.js";
 
 const server = new Server(
@@ -641,6 +645,68 @@ async function createNewThreadMergeRequest(
   return GitLabThreadSchema.parse(await response.json());
 }
 
+async function resolveThreadMergeRequest(
+  projectId: string,
+  mergeRequestId: string,
+  discussionId: string,
+  resolved: boolean
+): Promise<GitLabThread> {
+  const response = await fetch(
+    `${GITLAB_API_URL}/projects/${encodeURIComponent(
+      projectId
+    )}/merge_requests/${mergeRequestId}/discussions/${discussionId}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        resolved,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
+  }
+
+  return GitLabThreadSchema.parse(await response.json());
+}
+
+async function addNoteToThreadMergeRequest(
+  projectId: string,
+  mergeRequestId: string,
+  discussionId: string,
+  body: string,
+  note_id?: string
+): Promise<GitLabThreadNote> {
+  const response = await fetch(
+    `${GITLAB_API_URL}/projects/${encodeURIComponent(
+      projectId
+    )}/merge_requests/${mergeRequestId}/discussions/${discussionId}/notes`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        body,
+        note_id,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
+  }
+
+  return GitLabThreadNoteSchema.parse(await response.json());
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
@@ -718,6 +784,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         description:
           "Creates a new thread to a single project merge request. Similar to creating a note but other comments (replies) can be added to it later.",
         inputSchema: zodToJsonSchema(CreateMergeRequestThreadSchema),
+      },
+      {
+        name: "resolve_merge_request_thread",
+        description:
+          "Resolve or unresolve a thread of discussion in a merge request.",
+        inputSchema: zodToJsonSchema(ResolveMergeRequestThreadSchema),
+      },
+      {
+        name: "add_note_to_merge_request_thread",
+        description:
+          "Adds a new note to the thread. This can also create a thread from a single comment if provide note_id.",
+        inputSchema: zodToJsonSchema(AddNoteToMergeRequestThreadSchema),
       },
     ],
   };
@@ -932,6 +1010,40 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         );
         return {
           content: [{ type: "text", text: JSON.stringify(thread, null, 2) }],
+        };
+      }
+
+      case "resolve_merge_request_thread": {
+        const args = ResolveMergeRequestThreadSchema.parse(
+          request.params.arguments
+        );
+        const { project_id, merge_request_iid, discussion_id, resolved } = args;
+        const thread = await resolveThreadMergeRequest(
+          project_id,
+          merge_request_iid,
+          discussion_id,
+          resolved
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify(thread, null, 2) }],
+        };
+      }
+
+      case "add_note_to_merge_request_thread": {
+        const args = AddNoteToMergeRequestThreadSchema.parse(
+          request.params.arguments
+        );
+        const { project_id, merge_request_iid, body, discussion_id, note_id } =
+          args;
+        const approval = await addNoteToThreadMergeRequest(
+          project_id,
+          merge_request_iid,
+          discussion_id,
+          body,
+          note_id
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify(approval, null, 2) }],
         };
       }
 
