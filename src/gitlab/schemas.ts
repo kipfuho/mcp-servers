@@ -331,10 +331,12 @@ const GitLabThreadPositionSchema = z
     head_sha: z.string().describe("SHA of the head commit in the diff"),
     old_path: z.string().describe("Path to the file in the old version"),
     new_path: z.string().describe("Path to the file in the new version"),
-    position_type: z.string().describe("Type of position, usually 'text'"),
-    old_line: z.number().describe("Line number in the old file"),
-    new_line: z.number().describe("Line number in the new file"),
-    line_range: GitLabThreadLineRangeSchema,
+    position_type: z
+      .enum(["text", "image", "file"])
+      .describe("Type of position, usually 'text'"),
+    old_line: z.number().describe("Line number in the old file").optional(),
+    new_line: z.number().describe("Line number in the new file").optional(),
+    line_range: GitLabThreadLineRangeSchema.optional(),
     // width: z.number().optional().describe("Image width for image diff notes"),
     // height: z.number().optional().describe("Image height for image diff notes"),
     // x: z.number().optional().describe("X coordinate for image diff notes"),
