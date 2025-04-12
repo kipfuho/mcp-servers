@@ -622,23 +622,80 @@ async function createNewThreadMergeRequest(
   commit_id?: string,
   position?: GitLabThreadPosition
 ): Promise<GitLabThread> {
-  const response = await fetch(
-    `${GITLAB_API_URL}/projects/${encodeURIComponent(
-      projectId
-    )}/merge_requests/${mergeRequestId}/discussions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        body,
-        commit_id,
-        position,
-      }),
+  const url = `${GITLAB_API_URL}/projects/${encodeURIComponent(
+    projectId
+  )}/merge_requests/${mergeRequestId}/discussions`;
+
+  const formData = new URLSearchParams();
+  formData.append("body", body);
+  if (commit_id) {
+    formData.append("commit_id", commit_id);
+  }
+
+  if (position) {
+    formData.append("position[base_sha]", position.base_sha);
+    formData.append("position[head_sha]", position.head_sha);
+    formData.append("position[start_sha]", position.start_sha);
+    if (position.old_line)
+      formData.append("position[old_line]", position.old_line.toString());
+    if (position.new_line)
+      formData.append("position[new_line]", position.new_line.toString());
+    formData.append("position[new_path]", position.new_path);
+    formData.append("position[old_path]", position.old_path);
+    formData.append("position[position_type]", position.position_type);
+    if (position.line_range) {
+      if (position.line_range.start) {
+        formData.append(
+          "position[line_range][start][line_code]",
+          position.line_range.start.line_code
+        );
+        formData.append(
+          "position[line_range][start][type]",
+          position.line_range.start.type
+        );
+        if (position.line_range.start.old_line)
+          formData.append(
+            "position[line_range][start][old_line]",
+            position.line_range.start.old_line.toString()
+          );
+        if (position.line_range.start.new_line)
+          formData.append(
+            "position[line_range][start][new_line]",
+            position.line_range.start.new_line.toString()
+          );
+      }
+
+      if (position.line_range.end) {
+        formData.append(
+          "position[line_range][end][line_code]",
+          position.line_range.end.line_code
+        );
+        formData.append(
+          "position[line_range][end][type]",
+          position.line_range.end.type
+        );
+        if (position.line_range.end.old_line)
+          formData.append(
+            "position[line_range][end][old_line]",
+            position.line_range.end.old_line.toString()
+          );
+        if (position.line_range.end.new_line)
+          formData.append(
+            "position[line_range][end][new_line]",
+            position.line_range.end.new_line.toString()
+          );
+      }
     }
-  );
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: formData.toString(),
+  });
 
   if (!response.ok) {
     const errorBody = await response.text();
