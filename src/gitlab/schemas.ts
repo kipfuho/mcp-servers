@@ -324,21 +324,11 @@ const GitLabThreadLineRangeSchema = z
 
 const GitLabThreadPositionSchema = z
   .object({
-    base_sha: z
-      .string()
-      .describe(
-        "SHA of the base commit of the diff. Get from merge request version"
-      ),
+    base_sha: z.string().describe("SHA of the base commit of the diff."),
     start_sha: z
       .string()
-      .describe(
-        "SHA of the starting commit in the diff comparison. Get from merge request version"
-      ),
-    head_sha: z
-      .string()
-      .describe(
-        "SHA of the head commit in the diff. Get from merge request version"
-      ),
+      .describe("SHA of the starting commit in the diff comparison."),
+    head_sha: z.string().describe("SHA of the head commit in the diff."),
     old_path: z.string().describe("Path to the file in the old version"),
     new_path: z.string().describe("Path to the file in the new version"),
     position_type: z
@@ -346,12 +336,10 @@ const GitLabThreadPositionSchema = z
       .describe("Type of position, usually 'text'"),
     old_line: z
       .number()
-      .optional()
       .describe("Line number in the old file. (Must not be null)")
       .optional(),
     new_line: z
       .number()
-      .optional()
       .describe("Line number in the new file. (Must not be null)")
       .optional(),
     line_range: GitLabThreadLineRangeSchema.optional().nullable(),
@@ -528,9 +516,33 @@ export const CreateMergeRequestThreadSchema = MergeRequestParamsSchema.extend({
   //   .string()
   //   .optional()
   //   .describe("ISO 8601 date-time string, requires admin/project owner rights"),
-  position: GitLabThreadPositionSchema.optional().describe(
-    "Optional position object for diff/image/file comments"
-  ),
+  position: z
+    .object({
+      base_sha: z
+        .string()
+        .describe(
+          "SHA of the base commit of the diff. Get from merge request version"
+        ),
+      start_sha: z
+        .string()
+        .describe(
+          "SHA of the starting commit in the diff comparison. Get from merge request version"
+        ),
+      head_sha: z
+        .string()
+        .describe(
+          "SHA of the head commit in the diff. Get from merge request version"
+        ),
+      old_path: z.string().describe("Path to the file in the old version"),
+      new_path: z.string().describe("Path to the file in the new version"),
+      position_type: z
+        .enum(["text", "image", "file"])
+        .describe("Type of position, usually 'text'"),
+      old_line: z.number().describe("Line number in the old file.").optional(),
+      new_line: z.number().describe("Line number in the new file.").optional(),
+    })
+    .optional()
+    .describe("Optional position object for diff/image/file comments"),
 });
 
 export const ResolveMergeRequestThreadSchema = DiscussionParamsSchema.extend({
