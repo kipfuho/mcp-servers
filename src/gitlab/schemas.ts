@@ -521,7 +521,16 @@ export const AddNoteToMergeRequestThreadSchema = DiscussionParamsSchema.extend({
   note_id: z.string().optional().describe("The ID of a thread note."),
 });
 
-export const GetThreadListMergeRequestSchema = MergeRequestParamsSchema;
+export const GetThreadListMergeRequestSchema = MergeRequestParamsSchema.extend({
+  page: z
+    .number()
+    .optional()
+    .describe("Page number for pagination (default: 1)"),
+  per_page: z
+    .number()
+    .optional()
+    .describe("Number of results per page (default: 20)"),
+});
 
 // Export types
 export type GitLabAuthor = z.infer<typeof GitLabAuthorSchema>;

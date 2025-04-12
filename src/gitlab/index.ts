@@ -464,9 +464,9 @@ async function commentMergeRequest(
 async function getMergeRequestDiffs(
   projectId: string,
   mergeRequestId: string,
-  page: number | undefined,
-  perPage: number | undefined,
-  unidiff: boolean | undefined
+  page?: number,
+  perPage?: number,
+  unidiff?: boolean
 ): Promise<GitLabMergeRequestDiffs> {
   try {
     let url = `${GITLAB_API_URL}/projects/${encodeURIComponent(
@@ -711,20 +711,35 @@ async function addNoteToThreadMergeRequest(
 
 async function getThreadListMergeRequest(
   projectId: string,
-  mergeRequestId: string
+  mergeRequestId: string,
+  page?: number,
+  perPage?: number
 ): Promise<GitLabThread[]> {
-  const response = await fetch(
-    `${GITLAB_API_URL}/projects/${encodeURIComponent(
-      projectId
-    )}/merge_requests/${mergeRequestId}/discussions`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-    }
-  );
+  let url = `${GITLAB_API_URL}/projects/${encodeURIComponent(
+    projectId
+  )}/merge_requests/${mergeRequestId}/discussions`;
+  const queryParams = new URLSearchParams();
+
+  if (page) {
+    queryParams.append("page", `${page}`);
+  }
+
+  if (perPage) {
+    queryParams.append("per_page", `${perPage}`);
+  }
+
+  const queryString = queryParams.toString();
+  if (queryString) {
+    url += `?${queryString}`;
+  }
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+  });
 
   if (!response.ok) {
     const errorBody = await response.text();
@@ -1084,13 +1099,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const args = GetThreadListMergeRequestSchema.parse(
           request.params.arguments
         );
-        const { project_id, merge_request_iid } = args;
-        const approval = await getThreadListMergeRequest(
+        const { project_id, merge_request_iid, page, per_page } = args;
+        const threads = await getThreadListMergeRequest(
           project_id,
-          merge_request_iid
+          merge_request_iid,
+          page,
+          per_page
         );
         return {
-          content: [{ type: "text", text: JSON.stringify(approval, null, 2) }],
+          content: [{ type: "text", text: JSON.stringify(threads, null, 2) }],
         };
       }
 
