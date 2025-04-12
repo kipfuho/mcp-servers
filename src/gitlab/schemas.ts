@@ -345,6 +345,7 @@ const GitLabThreadPositionSchema = z
 export const GitLabThreadNoteSchema = GitLabNoteSchema.extend({
   type: z
     .enum(["Note", "Discussion", "DiscussionNote"])
+    .nullable()
     .describe("Type of note, e.g., 'Discussion'"),
   attachment: z.any().nullable().describe("Any file attachment to the note"),
   commit_id: z
