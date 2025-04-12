@@ -617,7 +617,6 @@ async function createNewThreadMergeRequest(
   mergeRequestId: string,
   body: string,
   commit_id?: string,
-  created_at?: string,
   position?: GitLabThreadPosition
 ): Promise<GitLabThread> {
   const response = await fetch(
@@ -633,7 +632,6 @@ async function createNewThreadMergeRequest(
       body: JSON.stringify({
         body,
         commit_id,
-        created_at,
         position,
       }),
     }
@@ -711,42 +709,52 @@ async function addNoteToThreadMergeRequest(
 
 async function getThreadListMergeRequest(
   projectId: string,
-  mergeRequestId: string,
-  page?: number,
-  perPage?: number
+  mergeRequestId: string
 ): Promise<GitLabThread[]> {
-  let url = `${GITLAB_API_URL}/projects/${encodeURIComponent(
-    projectId
-  )}/merge_requests/${mergeRequestId}/discussions`;
-  const queryParams = new URLSearchParams();
+  let allThreads: GitLabThread[] = [];
+  let page = 1;
+  const perPage = 20; // Default page size
 
-  if (page) {
+  while (true) {
+    let url = `${GITLAB_API_URL}/projects/${encodeURIComponent(
+      projectId
+    )}/merge_requests/${mergeRequestId}/discussions`;
+    const queryParams = new URLSearchParams();
+
     queryParams.append("page", `${page}`);
-  }
-
-  if (perPage) {
     queryParams.append("per_page", `${perPage}`);
+
+    const queryString = queryParams.toString();
+    if (queryString) {
+      url += `?${queryString}`;
+    }
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(
+        `GitLab API error: ${response.statusText} - ${errorBody}`
+      );
+    }
+
+    const threads = GitLabThreadListSchema.parse(await response.json());
+    allThreads = allThreads.concat(threads);
+
+    if (threads.length < perPage) {
+      break; // Exit loop if the last page is reached
+    }
+
+    page += 1; // Move to the next page
   }
 
-  const queryString = queryParams.toString();
-  if (queryString) {
-    url += `?${queryString}`;
-  }
-
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
-  }
-
-  return GitLabThreadListSchema.parse(await response.json());
+  return allThreads;
 }
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -1040,20 +1048,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const args = CreateMergeRequestThreadSchema.parse(
           request.params.arguments
         );
-        const {
-          project_id,
-          merge_request_iid,
-          body,
-          commit_id,
-          created_at,
-          position,
-        } = args;
+        const { project_id, merge_request_iid, body, commit_id, position } =
+          args;
         const thread = await createNewThreadMergeRequest(
           project_id,
           merge_request_iid,
           body,
           commit_id,
-          created_at,
           position
         );
         return {
@@ -1099,12 +1100,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const args = GetThreadListMergeRequestSchema.parse(
           request.params.arguments
         );
-        const { project_id, merge_request_iid, page, per_page } = args;
+        const { project_id, merge_request_iid } = args;
         const threads = await getThreadListMergeRequest(
           project_id,
-          merge_request_iid,
-          page,
-          per_page
+          merge_request_iid
         );
         return {
           content: [{ type: "text", text: JSON.stringify(threads, null, 2) }],

@@ -503,10 +503,10 @@ export const CreateMergeRequestThreadSchema = MergeRequestParamsSchema.extend({
     .string()
     .optional()
     .describe("SHA referencing commit to start this thread on"),
-  created_at: z
-    .string()
-    .optional()
-    .describe("ISO 8601 date-time string, requires admin/project owner rights"),
+  // created_at: z
+  //   .string()
+  //   .optional()
+  //   .describe("ISO 8601 date-time string, requires admin/project owner rights"),
   position: GitLabThreadPositionSchema.optional().describe(
     "Optional position object for diff/image/file comments"
   ),
