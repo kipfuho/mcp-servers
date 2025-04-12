@@ -344,18 +344,21 @@ const GitLabThreadPositionSchema = z
 
 export const GitLabThreadNoteSchema = GitLabNoteSchema.extend({
   type: z
-    .enum(["Note", "Discussion", "DiscussionNote"])
-    .nullable()
+    .union([z.enum(["Note", "Discussion", "DiscussionNote"]), z.null()])
     .describe("Type of note, e.g., 'Discussion'"),
   attachment: z.any().nullable().describe("Any file attachment to the note"),
   commit_id: z
     .string()
+    .optional()
     .describe("SHA of the commit this note is associated with"),
-  position: GitLabThreadPositionSchema,
-  resolved: z.boolean().describe("True if the note has been resolved"),
-  resolved_by: GitLabUserSchema.nullable().describe(
-    "User who resolved the note (nullable)"
-  ),
+  position: GitLabThreadPositionSchema.optional(),
+  resolved: z
+    .boolean()
+    .optional()
+    .describe("True if the note has been resolved"),
+  resolved_by: GitLabUserSchema.optional()
+    .nullable()
+    .describe("User who resolved the note (nullable)"),
 }).describe("Represents a single comment or note on a diff");
 
 export const GitLabThreadSchema = z.object({
