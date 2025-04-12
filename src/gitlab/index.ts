@@ -466,28 +466,20 @@ async function commentMergeRequest(
  */
 async function getMergeRequestDiffs(
   projectId: string,
-  mergeRequestId: string,
-  page?: number,
-  perPage?: number,
-  unidiff?: boolean
+  mergeRequestId: string
 ): Promise<GitLabMergeRequestDiffs> {
-  try {
+  let allDiffs: GitLabMergeRequestDiffs = [];
+  let page = 1;
+  const perPage = 20; // Default page size
+
+  while (true) {
     let url = `${GITLAB_API_URL}/projects/${encodeURIComponent(
       projectId
     )}/merge_requests/${mergeRequestId}/diffs`;
     const queryParams = new URLSearchParams();
 
-    if (page) {
-      queryParams.append("page", `${page}`);
-    }
-
-    if (perPage) {
-      queryParams.append("per_page", `${perPage}`);
-    }
-
-    if (unidiff) {
-      queryParams.append("unidiff", "true");
-    }
+    queryParams.append("page", `${page}`);
+    queryParams.append("per_page", `${perPage}`);
 
     const queryString = queryParams.toString();
     if (queryString) {
@@ -509,17 +501,18 @@ async function getMergeRequestDiffs(
     }
 
     const data = await response.json();
-    return GitLabMergeRequestDiffsSchema.parse(data);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new Error(
-        `Invalid response format: ${error.errors
-          .map((e) => `${e.path.join(".")}: ${e.message}`)
-          .join(", ")}`
-      );
+
+    const diffs = GitLabMergeRequestDiffsSchema.parse(data);
+    allDiffs = allDiffs.concat(diffs);
+
+    if (diffs.length < perPage) {
+      break; // Exit loop if the last page is reached
     }
-    throw error;
+
+    page += 1; // Move to the next page
   }
+
+  return allDiffs;
 }
 
 /**
@@ -1077,20 +1070,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "get_merge_request_diffs": {
         const args = GetMergeRequestDiffsSchema.parse(request.params.arguments);
-        const { project_id, merge_request_iid, page, per_page, unidiff } = args;
+        const { project_id, merge_request_iid } = args;
 
-        const diffs = await getMergeRequestDiffs(
-          project_id,
-          merge_request_iid,
-          page,
-          per_page,
-          unidiff
-        );
-
-        const raw_diffs = await getMergeRequestRawDiffs(
-          project_id,
-          merge_request_iid
-        );
+        const diffs = await getMergeRequestDiffs(project_id, merge_request_iid);
 
         return {
           content: [
@@ -1099,7 +1081,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text: JSON.stringify(
                 {
                   diffs,
-                  raw_diffs,
                 },
                 null,
                 2

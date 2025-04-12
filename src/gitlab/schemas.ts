@@ -508,22 +508,7 @@ export const CommentMergeRequestSchema = MergeRequestParamsSchema.extend({
   body: z.string().describe("Comment content"),
 });
 
-export const GetMergeRequestDiffsSchema = MergeRequestParamsSchema.extend({
-  page: z
-    .number()
-    .optional()
-    .describe("The page of results to return. Defaults to 1"),
-  per_page: z
-    .number()
-    .optional()
-    .describe("The number of results per page. Defaults to 20."),
-  unidiff: z
-    .boolean()
-    .optional()
-    .describe(
-      "If true, present diffs in the unified diff format. Default is false."
-    ),
-});
+export const GetMergeRequestDiffsSchema = MergeRequestParamsSchema;
 
 export const GetMergeRequestRawDiffsSchema = MergeRequestParamsSchema;
 
