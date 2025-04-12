@@ -346,7 +346,7 @@ const GitLabThreadPositionSchema = z
       .nullable()
       .describe("Line number in the new file")
       .optional(),
-    line_range: GitLabThreadLineRangeSchema.optional(),
+    line_range: GitLabThreadLineRangeSchema.optional().nullable(),
     // width: z.number().optional().describe("Image width for image diff notes"),
     // height: z.number().optional().describe("Image height for image diff notes"),
     // x: z.number().optional().describe("X coordinate for image diff notes"),
