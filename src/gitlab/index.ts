@@ -65,6 +65,8 @@ import {
   GitLabThreadNoteSchema,
   AddNoteToMergeRequestThreadSchema,
   ResolveMergeRequestThreadSchema,
+  GitLabThreadListSchema,
+  GetThreadListMergeRequestSchema,
 } from "./schemas.js";
 
 const server = new Server(
@@ -707,6 +709,31 @@ async function addNoteToThreadMergeRequest(
   return GitLabThreadNoteSchema.parse(await response.json());
 }
 
+async function getThreadListMergeRequest(
+  projectId: string,
+  mergeRequestId: string
+): Promise<GitLabThread[]> {
+  const response = await fetch(
+    `${GITLAB_API_URL}/projects/${encodeURIComponent(
+      projectId
+    )}/merge_requests/${mergeRequestId}/discussions`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
+  }
+
+  return GitLabThreadListSchema.parse(await response.json());
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
@@ -796,6 +823,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         description:
           "Adds a new note to the thread. This can also create a thread from a single comment if provide note_id.",
         inputSchema: zodToJsonSchema(AddNoteToMergeRequestThreadSchema),
+      },
+      {
+        name: "get_thread_list_merge_request",
+        description:
+          "Gets a list of all discussion items for a single merge request.",
+        inputSchema: zodToJsonSchema(GetThreadListMergeRequestSchema),
       },
     ],
   };
@@ -1041,6 +1074,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           discussion_id,
           body,
           note_id
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify(approval, null, 2) }],
+        };
+      }
+
+      case "get_thread_list_merge_request": {
+        const args = GetThreadListMergeRequestSchema.parse(
+          request.params.arguments
+        );
+        const { project_id, merge_request_iid } = args;
+        const approval = await getThreadListMergeRequest(
+          project_id,
+          merge_request_iid
         );
         return {
           content: [{ type: "text", text: JSON.stringify(approval, null, 2) }],

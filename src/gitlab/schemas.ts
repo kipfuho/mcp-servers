@@ -177,7 +177,7 @@ export const GitLabUserSchema = z.object({
   name: z.string(),
   avatar_url: z.string(),
   web_url: z.string(), // Changed from html_url to match GitLab API
-  state: z.string(),
+  // state: z.string(),
 });
 
 export const GitLabMilestoneSchema = z.object({
@@ -195,14 +195,14 @@ export const GitLabIssueSchema = z.object({
   project_id: z.number(), // Added to match GitLab API
   title: z.string(),
   description: z.string(), // Changed from body to match GitLab API
-  state: z.string(),
+  // state: z.string(),
   author: GitLabUserSchema,
   assignees: z.array(GitLabUserSchema),
   labels: z.array(GitLabLabelSchema),
   milestone: GitLabMilestoneSchema.nullable(),
-  created_at: z.string(),
-  updated_at: z.string(),
-  closed_at: z.string().nullable(),
+  // created_at: z.string(),
+  // updated_at: z.string(),
+  // closed_at: z.string().nullable(),
   web_url: z.string(), // Changed from html_url to match GitLab API
 });
 
@@ -219,7 +219,7 @@ export const GitLabMergeRequestSchema = z.object({
   project_id: z.number(), // Added to match GitLab API
   title: z.string(),
   description: z.string(), // Changed from body to match GitLab API
-  state: z.string(),
+  // state: z.string(),
   merged: z.boolean().optional(),
   author: GitLabUserSchema,
   assignees: z.array(GitLabUserSchema),
@@ -227,10 +227,10 @@ export const GitLabMergeRequestSchema = z.object({
   target_branch: z.string(), // Changed from base to match GitLab API
   diff_refs: GitLabMergeRequestDiffRefSchema.nullable(),
   web_url: z.string(), // Changed from html_url to match GitLab API
-  created_at: z.string(),
-  updated_at: z.string(),
-  merged_at: z.string().nullable(),
-  closed_at: z.string().nullable(),
+  // created_at: z.string(),
+  // updated_at: z.string(),
+  // merged_at: z.string().nullable(),
+  // closed_at: z.string().nullable(),
   merge_commit_sha: z.string().nullable(),
 });
 
@@ -238,8 +238,8 @@ export const GitLabNoteSchema = z.object({
   id: z.number().describe("Unique ID of the note"),
   body: z.string().describe("Content of the note"),
   author: GitLabUserSchema,
-  created_at: z.string().describe("Timestamp when the note was created"),
-  updated_at: z.string().describe("Timestamp when the note was last updated"),
+  // created_at: z.string().describe("Timestamp when the note was created"),
+  // updated_at: z.string().describe("Timestamp when the note was last updated"),
   system: z.boolean().describe("True if it's a system-generated note"),
   noteable_id: z.number().describe("ID of the item the note is attached to"),
   noteable_type: z
@@ -251,10 +251,10 @@ export const GitLabNoteSchema = z.object({
     .nullable()
     .describe("Internal ID of the noteable item (nullable)"),
   resolvable: z.boolean().describe("True if the note is resolvable"),
-  confidential: z.boolean().describe("The confidential flag of a note."),
-  internal: z
-    .boolean()
-    .describe("The internal flag of a note. Same as 'confidential'"),
+  // confidential: z.boolean().describe("The confidential flag of a note."),
+  // internal: z
+  //   .boolean()
+  //   .describe("The internal flag of a note. Same as 'confidential'"),
 });
 
 export const GitLabApprovalSchema = z.object({
@@ -264,8 +264,8 @@ export const GitLabApprovalSchema = z.object({
   title: z.string(),
   description: z.string(),
   state: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
+  // created_at: z.string(),
+  // updated_at: z.string(),
   merge_status: z.string(),
   approvals_required: z.number(),
   approvals_left: z.number(),
@@ -335,10 +335,10 @@ const GitLabThreadPositionSchema = z
     old_line: z.number().describe("Line number in the old file"),
     new_line: z.number().describe("Line number in the new file"),
     line_range: GitLabThreadLineRangeSchema,
-    width: z.number().optional().describe("Image width for image diff notes"),
-    height: z.number().optional().describe("Image height for image diff notes"),
-    x: z.number().optional().describe("X coordinate for image diff notes"),
-    y: z.number().optional().describe("Y coordinate for image diff notes"),
+    // width: z.number().optional().describe("Image width for image diff notes"),
+    // height: z.number().optional().describe("Image height for image diff notes"),
+    // x: z.number().optional().describe("X coordinate for image diff notes"),
+    // y: z.number().optional().describe("Y coordinate for image diff notes"),
   })
   .describe("Describes the exact location of the note in the diff");
 
@@ -362,6 +362,8 @@ export const GitLabThreadSchema = z.object({
   individual_note: z.boolean(),
   notes: z.array(GitLabThreadNoteSchema),
 });
+
+export const GitLabThreadListSchema = z.array(GitLabThreadSchema);
 
 // API Operation Parameter Schemas
 const ProjectParamsSchema = z.object({
@@ -514,6 +516,8 @@ export const AddNoteToMergeRequestThreadSchema = DiscussionParamsSchema.extend({
   body: z.string().min(1).describe("The content of the thread"),
   note_id: z.string().optional().describe("The ID of a thread note."),
 });
+
+export const GetThreadListMergeRequestSchema = MergeRequestParamsSchema;
 
 // Export types
 export type GitLabAuthor = z.infer<typeof GitLabAuthorSchema>;
