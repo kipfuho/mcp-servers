@@ -691,8 +691,29 @@ async function createNewThreadMergeRequest(
   });
 
   if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`GitLab API error: ${response.statusText} - ${errorBody}`);
+    try {
+      formData.delete("position[old_line]");
+      formData.delete("position[new_line]");
+      const anotherOne = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formData.toString(),
+      });
+
+      if (!anotherOne.ok) {
+        const errorBody = await response.text();
+        throw new Error(
+          `GitLab API error: ${response.statusText} - ${errorBody}`
+        );
+      }
+
+      return GitLabThreadSchema.parse(await anotherOne.json());
+    } catch (error) {
+      throw new Error(`GitLab API error: ${response.statusText} - ${error}`);
+    }
   }
 
   return GitLabThreadSchema.parse(await response.json());
