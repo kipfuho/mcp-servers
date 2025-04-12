@@ -694,6 +694,7 @@ async function createNewThreadMergeRequest(
     try {
       formData.delete("position[old_line]");
       formData.delete("position[new_line]");
+      formData.set("body", `${body}. (Failed to create discussion on specific line)`);
       const anotherOne = await fetch(url, {
         method: "POST",
         headers: {
