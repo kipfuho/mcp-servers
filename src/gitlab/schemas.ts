@@ -538,8 +538,18 @@ export const CreateMergeRequestThreadSchema = MergeRequestParamsSchema.extend({
       position_type: z
         .enum(["text", "image", "file"])
         .describe("Type of position, usually 'text'"),
-      old_line: z.number().describe("Line number in the old file.").optional(),
-      new_line: z.number().describe("Line number in the new file.").optional(),
+      old_line: z
+        .number()
+        .describe(
+          "Use this without 'new_line' to create a thread on an removed line (line start with -). Or use with new_line to create a thread on an unchanged line"
+        )
+        .optional(),
+      new_line: z
+        .number()
+        .describe(
+          "Use this without 'old_line' to create a thread on an added line (line start with +). Or use with old_line to create a thread on an unchanged line"
+        )
+        .optional(),
     })
     .optional()
     .describe("Optional position object for diff/image/file comments"),
